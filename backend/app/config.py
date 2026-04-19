@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
+    gemini_api_key: str = ""
 
     mapbox_token: str = ""
     mock_ai: bool = False
