@@ -15,6 +15,7 @@ swap for a proper queue (RQ / Celery / Arq / Supabase Edge Functions).
 """
 from __future__ import annotations
 import asyncio
+import os
 import logging
 from datetime import datetime, timezone
 
@@ -69,11 +70,20 @@ async def _run_pipeline(job_id: str, source_url: str) -> None:
 
         # 2. aggregate + AI extract
         text = aggregate_text(info)
-        if not text:
-            _touch("failed", error_message="No usable text in TikTok metadata.")
+        downloaded_video_path = info.get("downloaded_video_path")
+        
+        if not text and not downloaded_video_path:
+            _touch("failed", error_message="No usable info in TikTok metadata.")
             return
 
-        candidates = await asyncio.to_thread(extract_places, text)
+        candidates = await asyncio.to_thread(extract_places, downloaded_video_path, text)
+        
+        # Cleanup temporary video
+        if downloaded_video_path and os.path.exists(downloaded_video_path):
+            try:
+                os.remove(downloaded_video_path)
+            except OSError:
+                pass
 
         # 3. geocode
         rows = []

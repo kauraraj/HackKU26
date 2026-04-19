@@ -4,6 +4,8 @@ and subtitles/captions. We intentionally skip video download to avoid
 storing large blobs during a hackathon MVP.
 """
 from __future__ import annotations
+import os
+import uuid
 import logging
 import re
 from typing import Any
@@ -22,9 +24,15 @@ def is_tiktok_url(url: str) -> bool:
 
 
 def fetch_metadata(url: str) -> dict[str, Any]:
-    """Return yt-dlp info dict. No video download."""
+    """Return yt-dlp info dict. Downloads video temporarily."""
+    temp_id = str(uuid.uuid4())
+    temp_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'downloads'))
+    os.makedirs(temp_dir, exist_ok=True)
+    temp_filename = os.path.join(temp_dir, f"{temp_id}.mp4")
+
     opts = {
-        "skip_download": True,
+        "outtmpl": temp_filename,
+        "format": "best",
         "quiet": True,
         "no_warnings": True,
         "writesubtitles": False,
@@ -33,9 +41,11 @@ def fetch_metadata(url: str) -> dict[str, Any]:
         "noplaylist": True,
     }
     with yt_dlp.YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(url, download=False)
+        info = ydl.extract_info(url, download=True)
         if not info:
             raise RuntimeError("yt-dlp returned no info")
+        
+        info['downloaded_video_path'] = temp_filename
         return info
 
 
