@@ -1,9 +1,10 @@
-import { useCallback, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
+import { Alert, StyleSheet, Text, View, Pressable, ScrollView } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { GoogleMapView, Marker } from '@/components/Map';
+import type MapView from 'react-native-maps';
+import { GoogleMapView, Marker, MapViewDirections } from '@/components/Map';
 import { Button } from '@/components/Button';
 import { LoadingState } from '@/components/LoadingState';
 import { EmptyState } from '@/components/EmptyState';
@@ -18,14 +19,22 @@ export default function TripDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
+  const [optimizedRouteOrder, setOptimizedRouteOrder] = useState<Record<string, number[]>>({});
 
   const load = useCallback(async () => {
     try {
-      if (id) setTrip(await getTrip(id));
+      if (id) {
+        const fetchedTrip = await getTrip(id);
+        setTrip(fetchedTrip);
+        if (fetchedTrip?.days?.length > 0 && !selectedDayId) {
+          setSelectedDayId(fetchedTrip.days[0].id);
+        }
+      }
     } catch (e) {
       Alert.alert('Failed to load trip', (e as Error).message);
     }
-  }, [id]);
+  }, [id, selectedDayId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -52,19 +61,84 @@ export default function TripDetail() {
   };
 
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const mapRef = useRef<MapView>(null);
+
+  // Compute places for the selected day specifically
+  const selectedDayPlaces = useMemo(() => {
+    if (!trip || !selectedDayId) return [];
+    const day = trip.days.find(d => d.id === selectedDayId);
+    if (!day) return [];
+
+    // Sort items chronologically: morning -> afternoon -> evening
+    const items = [...day.items].sort((a, b) => {
+      const bDiff = BLOCK_ORDER.indexOf(a.block) - BLOCK_ORDER.indexOf(b.block);
+      if (bDiff !== 0) return bDiff;
+      return a.position - b.position;
+    });
+
+    const placesSeq: typeof trip.places = [];
+    for (const it of items) {
+      if (it.saved_place_id) {
+        const place = trip.places.find(p => p.id === it.saved_place_id);
+        if (place && place.latitude != null && place.longitude != null) {
+          placesSeq.push(place);
+        }
+      }
+    }
+
+    // Apply Google Directions optimized waypoint ordering if we have it
+    const orderRef = optimizedRouteOrder[selectedDayId];
+    if (orderRef && placesSeq.length > 2 && orderRef.length === placesSeq.length - 2) {
+      const start = placesSeq[0];
+      const end = placesSeq[placesSeq.length - 1];
+      const middle = placesSeq.slice(1, -1);
+      
+      // reorder middle according to Google's TSP optimized order
+      const optimizedMiddle = orderRef.map((idx) => middle[idx]);
+      return [start, ...optimizedMiddle, end];
+    }
+    
+    return placesSeq;
+  }, [trip, selectedDayId, optimizedRouteOrder]);
+
+  const mapPlaces = selectedDayPlaces;
+  
+  const getBoundingRegion = (places: typeof mapPlaces) => {
+    if (places.length === 0) return undefined;
+    const lats = places.map(p => p.latitude!);
+    const lons = places.map(p => p.longitude!);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLon = Math.min(...lons);
+    const maxLon = Math.max(...lons);
+
+    return {
+      latitude: (minLat + maxLat) / 2,
+      longitude: (minLon + maxLon) / 2,
+      latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.05),
+      longitudeDelta: Math.max((maxLon - minLon) * 1.5, 0.05),
+    };
+  };
+  
+  const initialRegion = getBoundingRegion(mapPlaces);
+
+  useEffect(() => {
+    if (mapPlaces.length > 0 && mapRef.current) {
+      setTimeout(() => {
+        mapRef.current?.fitToCoordinates(
+          mapPlaces.map(p => ({ latitude: p.latitude!, longitude: p.longitude! })),
+          {
+            edgePadding: { top: 50, right: 50, bottom: 400, left: 50 },
+            animated: true,
+          }
+        );
+      }, 500); // Allow map to mount
+    }
+  }, [mapPlaces, trip]);
 
   if (!trip) return <LoadingState />;
 
   const totalItems = trip.days.reduce((acc, d) => acc + d.items.length, 0);
-
-  // Find places with lat/lon for the map markers
-  const mapPlaces = trip.places.filter(p => p.latitude != null && p.longitude != null);
-  const initialRegion = mapPlaces.length > 0 ? {
-    latitude: mapPlaces[0].latitude!,
-    longitude: mapPlaces[0].longitude!,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
-  } : undefined;
 
   const snapPoints = ['25%', '50%', '90%'];
 
@@ -73,17 +147,49 @@ export default function TripDetail() {
       {/* Background Map taking up the full screen */}
       <View style={StyleSheet.absoluteFillObject}>
         <GoogleMapView 
+          ref={mapRef}
           style={styles.map} 
           initialRegion={initialRegion}
         >
-          {mapPlaces.map(p => (
+          {mapPlaces.map((p, idx) => (
              <Marker
-                key={p.id}
+                key={`${p.id}-${idx}`}
                 coordinate={{ latitude: p.latitude!, longitude: p.longitude! }}
-                title={p.normalized_name}
+                title={`${idx + 1}. ${p.normalized_name}`}
                 description={p.category || undefined}
              />
           ))}
+          {mapPlaces.length > 1 && (
+            <MapViewDirections
+              origin={{ latitude: mapPlaces[0].latitude!, longitude: mapPlaces[0].longitude! }}
+              destination={{ latitude: mapPlaces[mapPlaces.length - 1].latitude!, longitude: mapPlaces[mapPlaces.length - 1].longitude! }}
+              waypoints={mapPlaces.slice(1, -1).map(p => ({ latitude: p.latitude!, longitude: p.longitude! }))}
+              apikey={process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || ''}
+              strokeWidth={4}
+              strokeColor={theme.colors.accent}
+              optimizeWaypoints={true}
+              onReady={(result) => {
+                if (result.waypointOrder && result.waypointOrder.length > 0 && selectedDayId) {
+                  // Only update if it actually changed, to avoid infinite rendering loops
+                  setOptimizedRouteOrder(prev => {
+                    const currentOrder = prev[selectedDayId];
+                    if (currentOrder && JSON.stringify(currentOrder) === JSON.stringify(result.waypointOrder)) {
+                      return prev;
+                    }
+                    return { ...prev, [selectedDayId]: result.waypointOrder };
+                  });
+                }
+                
+                // Re-fit to the actual route coordinates
+                if (mapRef.current) {
+                  mapRef.current.fitToCoordinates(result.coordinates, {
+                    edgePadding: { top: 50, right: 50, bottom: 400, left: 50 },
+                    animated: true,
+                  });
+                }
+              }}
+            />
+          )}
         </GoogleMapView>
       </View>
 
@@ -106,31 +212,55 @@ export default function TripDetail() {
 
           {totalItems === 0 ? (
             <EmptyState title="No itinerary yet" subtitle="Tap regenerate to plan your days." />
-          ) : null}
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.daySelectorRow}>
+              {trip.days.map((d) => {
+                const isSel = d.id === selectedDayId;
+                return (
+                  <Pressable key={d.id} onPress={() => setSelectedDayId(d.id)}>
+                    <View style={[styles.daySelectorTab, isSel && styles.daySelectorTabActive]}>
+                      <Text style={[styles.daySelectorText, isSel && styles.daySelectorTextActive]}>
+                        Day {d.day_number}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )}
 
-          {trip.days.map((day) => (
+          {trip.days.filter(d => d.id === selectedDayId).map((day) => (
             <View key={day.id} style={styles.dayCard}>
               <Text style={styles.dayTitle}>Day {day.day_number} · {day.day_date}</Text>
               {day.summary ? <Text style={styles.daySummary}>{day.summary}</Text> : null}
 
-              {BLOCK_ORDER.map((block) => {
-                const items = day.items.filter((i) => i.block === block).sort((a, b) => a.position - b.position);
-                if (items.length === 0) return null;
-                return (
-                  <View key={block} style={styles.block}>
-                    <Text style={styles.blockLabel}>{BLOCK_LABEL[block]}</Text>
-                    {items.map((it) => (
-                      <View key={it.id} style={styles.item}>
-                        <Text style={styles.itemTitle}>{it.title}</Text>
-                        {it.rationale ? <Text style={styles.itemBody}>{it.rationale}</Text> : null}
-                        {it.estimated_travel_minutes ? (
-                          <Text style={styles.itemMeta}>~{it.estimated_travel_minutes} min travel</Text>
-                        ) : null}
-                      </View>
-                    ))}
+              {/* Show items by the optimal day routing if available */}
+              <View style={[styles.block, { marginTop: 12 }]}>
+                {mapPlaces.length > 0 ? (
+                  <>
+                    <Text style={styles.blockLabel}>🚕 Optimal Route</Text>
+                    {mapPlaces.map((p, idx) => {
+                      const it = day.items.find(i => i.saved_place_id === p.id);
+                      if (!it) return null;
+                      return (
+                        <View key={`${it.id}-${idx}`} style={styles.item}>
+                          <Text style={styles.itemTitle}>{idx + 1}. {it.title}</Text>
+                          {it.rationale ? <Text style={styles.itemBody}>{it.rationale}</Text> : null}
+                          <Text style={styles.itemMeta}>Scheduled originally for {BLOCK_LABEL[it.block]}</Text>
+                        </View>
+                      );
+                    })}
+                  </>
+                ) : null}
+                
+                {/* Fallback for items missing map coordinates */}
+                {day.items.filter(i => !mapPlaces.find(mp => mp.id === i.saved_place_id)).map(it => (
+                  <View key={it.id} style={[styles.item, { marginTop: 8 }]}>
+                     <Text style={styles.itemTitle}>{it.title}</Text>
+                     {it.rationale ? <Text style={styles.itemBody}>{it.rationale}</Text> : null}
                   </View>
-                );
-              })}
+                ))}
+              </View>
             </View>
           ))}
         </BottomSheetScrollView>
@@ -185,4 +315,25 @@ const styles = StyleSheet.create({
   itemTitle: { color: theme.colors.text, fontWeight: '600' },
   itemBody: { color: theme.colors.textDim, fontSize: 13 },
   itemMeta: { color: theme.colors.textDim, fontSize: 11 },
+  daySelectorRow: { marginBottom: 8, paddingBottom: 8 },
+  daySelectorTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: theme.colors.bgElevated,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginRight: 8,
+  },
+  daySelectorTabActive: {
+    backgroundColor: theme.colors.accent,
+    borderColor: theme.colors.accent,
+  },
+  daySelectorText: {
+    color: theme.colors.text,
+    fontWeight: '600',
+  },
+  daySelectorTextActive: {
+    color: '#fff',
+  }
 });
