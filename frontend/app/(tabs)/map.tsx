@@ -1,11 +1,11 @@
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { MapPin } from 'lucide-react-native';
 import { Screen } from '@/components/Screen';
 import { EmptyState } from '@/components/EmptyState';
 import { useTheme } from '@/context/ThemeContext';
 import { mapPlaces } from '@/services/places';
+import { GoogleMapView, Marker } from '@/components/Map';
 import type { MapPlace } from '@/types';
 
 let AppleMaps: any = null;
@@ -38,29 +38,28 @@ export default function MapTab() {
     ? { latitude: places[0].latitude, longitude: places[0].longitude, latitudeDelta: 2, longitudeDelta: 2 }
     : { latitude: 40, longitude: -20, latitudeDelta: 60, longitudeDelta: 60 };
 
+  // Uses expo-maps for native Apple/Google Maps UX.
+  // Falls back to GoogleMapView (react-native-maps web iframe) on web.
   if (!AppleMaps && !GoogleMaps) {
     return (
-      <Screen>
-        <Text style={[styles.title, { color: colors.foreground }]}>Map</Text>
-        <View style={[styles.unavailableCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-          <MapPin size={40} color={colors.mutedForeground} />
-          <Text style={[styles.unavailableTitle, { color: colors.foreground }]}>Map preview unavailable</Text>
-          <Text style={[styles.unavailableSub, { color: colors.mutedForeground }]}>
-            Open the app on iOS or Android with a dev client built that includes expo-maps.
-          </Text>
-        </View>
-        {places.map((p) => (
-          <View key={p.id} style={[styles.locationRow, { borderBottomColor: colors.border }]}>
-            <MapPin size={14} color={colors.primary} />
-            <Text style={[styles.locationText, { color: colors.foreground }]}>
-              {p.name}
-            </Text>
-            <Text style={[styles.locationCoords, { color: colors.mutedForeground }]}>
-              {p.latitude.toFixed(2)}, {p.longitude.toFixed(2)}
-            </Text>
-          </View>
-        ))}
-      </Screen>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        {places.length === 0 ? (
+          <Screen>
+            <EmptyState title="No saved places" subtitle="Save places from TikTok videos to see them on the map." />
+          </Screen>
+        ) : (
+          <GoogleMapView style={{ flex: 1 }} initialRegion={initialRegion}>
+            {places.map((p) => (
+              <Marker
+                key={p.id}
+                coordinate={{ latitude: p.latitude, longitude: p.longitude }}
+                title={p.name}
+                description={p.category ?? undefined}
+              />
+            ))}
+          </GoogleMapView>
+        )}
+      </View>
     );
   }
 
@@ -78,25 +77,3 @@ export default function MapTab() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  title: { fontSize: 28, fontWeight: '800' },
-  unavailableCard: {
-    alignItems: 'center',
-    padding: 32,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  unavailableTitle: { fontSize: 16, fontWeight: '600', textAlign: 'center' },
-  unavailableSub: { fontSize: 13, textAlign: 'center', lineHeight: 18 },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  locationText: { flex: 1, fontSize: 14, fontWeight: '500' },
-  locationCoords: { fontSize: 12 },
-});
