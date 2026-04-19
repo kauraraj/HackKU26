@@ -22,7 +22,7 @@ function AuthGate() {
     if (loading) return;
     const inAuthGroup = segments[0] === '(auth)';
     if (!session && !inAuthGroup) router.replace('/(auth)/login');
-    if (session && inAuthGroup) router.replace('/(tabs)');
+    if (session && inAuthGroup) router.replace('/(tabs)/feed');
   }, [session, loading, segments, router]);
 
   if (loading) return <LoadingState label="Waking up…" />;
@@ -41,6 +41,7 @@ function AuthGate() {
       <Stack.Screen name="ingestion/[id]" options={{ title: 'Review places' }} />
       <Stack.Screen name="trips/new" options={{ title: 'New trip' }} />
       <Stack.Screen name="trips/[id]" options={{ title: 'Trip' }} />
+      <Stack.Screen name="shared-trip/[id]" options={{ title: 'Trip' }} />
       <Stack.Screen name="profile" options={{ headerShown: false }} />
     </Stack>
   );

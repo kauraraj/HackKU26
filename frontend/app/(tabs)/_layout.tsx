@@ -1,10 +1,12 @@
 import { View, Pressable } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Home, Search, Plus, Calendar, User, Moon, Sun } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 
 export default function TabsLayout() {
   const { isDark, toggleTheme, colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -13,8 +15,8 @@ export default function TabsLayout() {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 80,
-          paddingBottom: 16,
+          height: 64 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
           paddingTop: 8,
         },
         tabBarActiveTintColor: colors.primary,
@@ -70,21 +72,20 @@ export default function TabsLayout() {
           tabBarIcon: () => (
             <View
               style={{
-                width: 56,
-                height: 56,
-                borderRadius: 28,
+                width: 52,
+                height: 52,
+                borderRadius: 26,
                 backgroundColor: colors.primary,
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: 20,
+                marginBottom: 24,
                 shadowColor: colors.primary,
                 shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.45,
-                shadowRadius: 10,
-                elevation: 8,
+                shadowOpacity: 0.4,
+                shadowRadius: 8,
               }}
             >
-              <Plus size={28} color="#fff" strokeWidth={2.5} />
+              <Plus size={26} color="#fff" strokeWidth={2.5} />
             </View>
           ),
         }}
