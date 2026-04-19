@@ -64,8 +64,12 @@ def _haversine_km(a: dict, b: dict) -> float:
 
 
 def _mock_itinerary(trip: dict[str, Any], places: list[dict[str, Any]]) -> dict[str, Any]:
-    start = date.fromisoformat(trip["start_date"])
-    end = date.fromisoformat(trip["end_date"])
+    # Extract just the YYYY-MM-DD part to handle any ISO format including datetime with 'T'
+    start_str = trip["start_date"].split("T")[0] if "T" in trip["start_date"] else trip["start_date"]
+    end_str = trip["end_date"].split("T")[0] if "T" in trip["end_date"] else trip["end_date"]
+
+    start = date.fromisoformat(start_str)
+    end = date.fromisoformat(end_str)
     total_days = (end - start).days + 1
     total_days = max(total_days, 1)
 

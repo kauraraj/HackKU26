@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { Screen } from '@/components/Screen';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { GoogleMapView, Marker } from '@/components/Map';
 import { Button } from '@/components/Button';
 import { LoadingState } from '@/components/LoadingState';
 import { EmptyState } from '@/components/EmptyState';
@@ -53,52 +54,106 @@ export default function TripDetail() {
 
   const totalItems = trip.days.reduce((acc, d) => acc + d.items.length, 0);
 
+  // Find places with lat/lon for the map markers
+  const mapPlaces = trip.places.filter(p => p.latitude != null && p.longitude != null);
+  const initialRegion = mapPlaces.length > 0 ? {
+    latitude: mapPlaces[0].latitude!,
+    longitude: mapPlaces[0].longitude!,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
+  } : undefined;
+
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 32 }}>
-        <View>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
+      {/* Top half or left half container */}
+      <View style={styles.itineraryContainer}>
+        <View style={styles.headerStack}>
           <Text style={styles.title}>{trip.title}</Text>
           <Text style={styles.sub}>{trip.destination ?? 'Destination TBD'}</Text>
           <Text style={styles.dates}>{trip.start_date} → {trip.end_date}</Text>
         </View>
 
-        <Button title={regenerating ? 'Generating…' : '✨ Regenerate itinerary'} onPress={regenerate} loading={regenerating} />
+        <ScrollView contentContainerStyle={{ gap: 16, padding: 16, paddingBottom: 32 }}>
+          <Button title={regenerating ? 'Generating…' : '✨ Regenerate itinerary'} onPress={regenerate} loading={regenerating} />
 
-        {totalItems === 0 ? (
-          <EmptyState title="No itinerary yet" subtitle="Tap regenerate to plan your days." />
-        ) : null}
+          {totalItems === 0 ? (
+            <EmptyState title="No itinerary yet" subtitle="Tap regenerate to plan your days." />
+          ) : null}
 
-        {trip.days.map((day) => (
-          <View key={day.id} style={styles.dayCard}>
-            <Text style={styles.dayTitle}>Day {day.day_number} · {day.day_date}</Text>
-            {day.summary ? <Text style={styles.daySummary}>{day.summary}</Text> : null}
+          {trip.days.map((day) => (
+            <View key={day.id} style={styles.dayCard}>
+              <Text style={styles.dayTitle}>Day {day.day_number} · {day.day_date}</Text>
+              {day.summary ? <Text style={styles.daySummary}>{day.summary}</Text> : null}
 
-            {BLOCK_ORDER.map((block) => {
-              const items = day.items.filter((i) => i.block === block).sort((a, b) => a.position - b.position);
-              if (items.length === 0) return null;
-              return (
-                <View key={block} style={styles.block}>
-                  <Text style={styles.blockLabel}>{BLOCK_LABEL[block]}</Text>
-                  {items.map((it) => (
-                    <View key={it.id} style={styles.item}>
-                      <Text style={styles.itemTitle}>{it.title}</Text>
-                      {it.rationale ? <Text style={styles.itemBody}>{it.rationale}</Text> : null}
-                      {it.estimated_travel_minutes ? (
-                        <Text style={styles.itemMeta}>~{it.estimated_travel_minutes} min travel</Text>
-                      ) : null}
-                    </View>
-                  ))}
-                </View>
-              );
-            })}
-          </View>
-        ))}
-      </ScrollView>
-    </Screen>
+              {BLOCK_ORDER.map((block) => {
+                const items = day.items.filter((i) => i.block === block).sort((a, b) => a.position - b.position);
+                if (items.length === 0) return null;
+                return (
+                  <View key={block} style={styles.block}>
+                    <Text style={styles.blockLabel}>{BLOCK_LABEL[block]}</Text>
+                    {items.map((it) => (
+                      <View key={it.id} style={styles.item}>
+                        <Text style={styles.itemTitle}>{it.title}</Text>
+                        {it.rationale ? <Text style={styles.itemBody}>{it.rationale}</Text> : null}
+                        {it.estimated_travel_minutes ? (
+                          <Text style={styles.itemMeta}>~{it.estimated_travel_minutes} min travel</Text>
+                        ) : null}
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+      
+      {/* Bottom half or right half container for Map */}
+      <View style={styles.mapContainer}>
+        <GoogleMapView 
+          style={styles.map} 
+          initialRegion={initialRegion}
+        >
+          {mapPlaces.map(p => (
+             <Marker
+                key={p.id}
+                coordinate={{ latitude: p.latitude!, longitude: p.longitude! }}
+                title={p.normalized_name}
+                description={p.category || undefined}
+             />
+          ))}
+        </GoogleMapView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: theme.colors.bg,
+  },
+  itineraryContainer: {
+    flex: 1,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  mapContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.bgElevated,
+  },
+  headerStack: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.bg,
+  },
+  map: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
   title: { color: theme.colors.text, fontSize: 26, fontWeight: '800' },
   sub: { color: theme.colors.textDim, marginTop: 4 },
   dates: { color: theme.colors.accentSoft, marginTop: 6 },
