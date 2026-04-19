@@ -42,8 +42,36 @@ Rules:
 
 
 def _mock_places(text: str) -> list[dict[str, Any]]:
-    # Mock remains unchanged
-    return []
+    seed = text.lower()
+    samples = []
+    if "tokyo" in seed or "japan" in seed:
+        samples.append({
+            "name": "Shibuya Crossing",
+            "normalized_name": "Shibuya Crossing",
+            "city": "Tokyo", "region": None, "country": "Japan",
+            "category": "landmark",
+            "reason": "Iconic scramble intersection highlighted in the video.",
+            "confidence": 0.88,
+        })
+    if "paris" in seed or "france" in seed or "eiffel" in seed:
+        samples.append({
+            "name": "Café de Flore",
+            "normalized_name": "Café de Flore",
+            "city": "Paris", "region": None, "country": "France",
+            "category": "cafe",
+            "reason": "Classic Left Bank café shown with morning pastries.",
+            "confidence": 0.72,
+        })
+    if not samples:
+        samples.append({
+            "name": "Sunset Viewpoint",
+            "normalized_name": "Sunset Viewpoint",
+            "city": None, "region": None, "country": None,
+            "category": "viewpoint",
+            "reason": "Video features a sunset scene — location unclear.",
+            "confidence": 0.35,
+        })
+    return samples
 
 def extract_places(video_path: str, text: str) -> list[dict[str, Any]]:
     """Main entry. Uses Gemini 1.5 Flash to extract locations from video + text."""

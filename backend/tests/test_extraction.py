@@ -22,7 +22,7 @@ def test_is_tiktok_url_rejects_other():
 
 
 def test_extract_places_tokyo_matches_mock():
-    places = extract_places("Amazing day in Tokyo, Japan. Must-visit spots!")
+    places = extract_places("", "Amazing day in Tokyo, Japan. Must-visit spots!")
     assert places, "mock should return at least one place"
     assert any("Shibuya" in (p.get("name") or "") for p in places)
 
