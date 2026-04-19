@@ -41,6 +41,7 @@ function AuthGate() {
       <Stack.Screen name="ingestion/[id]" options={{ title: 'Review places' }} />
       <Stack.Screen name="trips/new" options={{ title: 'New trip' }} />
       <Stack.Screen name="trips/[id]" options={{ title: 'Trip' }} />
+      <Stack.Screen name="profile" options={{ headerShown: false }} />
     </Stack>
   );
 }
