@@ -1,5 +1,6 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { theme } from './theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '@/context/ThemeContext';
 
 interface Props {
   title: string;
@@ -13,19 +14,48 @@ interface Props {
 }
 
 export function PlaceCard({ title, subtitle, reason, category, confidence, thumbnailUrl, onPress, trailing }: Props) {
+  const { colors } = useTheme();
   const pct = confidence != null ? Math.round(confidence * 100) : null;
-  const tone = pct == null ? null : pct >= 70 ? theme.colors.ok : pct >= 40 ? theme.colors.warn : theme.colors.danger;
+  const tone = pct == null ? null : pct >= 70 ? colors.ok : pct >= 40 ? colors.warn : colors.destructive;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}>
-      {thumbnailUrl ? <Image source={{ uri: thumbnailUrl }} style={styles.thumb} /> : <View style={[styles.thumb, styles.thumbFallback]} />}
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.card,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.cardBorder,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 4,
+          elevation: 2,
+        },
+        pressed && { opacity: 0.9 },
+      ]}
+    >
+      {thumbnailUrl ? (
+        <Image source={{ uri: thumbnailUrl }} style={styles.thumb} />
+      ) : (
+        <LinearGradient
+          colors={['#06b6d4', '#3b82f6']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.thumb}
+        />
+      )}
       <View style={styles.body}>
-        <Text style={styles.title} numberOfLines={1}>{title}</Text>
-        {subtitle ? <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text> : null}
-        {reason ? <Text style={styles.reason} numberOfLines={2}>{reason}</Text> : null}
+        <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>{title}</Text>
+        {subtitle ? <Text style={[styles.subtitle, { color: colors.mutedForeground }]} numberOfLines={1}>{subtitle}</Text> : null}
+        {reason ? <Text style={[styles.reason, { color: colors.mutedForeground }]} numberOfLines={2}>{reason}</Text> : null}
         <View style={styles.metaRow}>
-          {category ? <Text style={styles.chip}>{category}</Text> : null}
-          {pct != null ? <Text style={[styles.chip, { color: tone! }]}>{pct}% match</Text> : null}
+          {category ? (
+            <Text style={[styles.chip, { color: colors.mutedForeground, backgroundColor: colors.secondary }]}>{category}</Text>
+          ) : null}
+          {pct != null ? (
+            <Text style={[styles.chip, { color: tone!, backgroundColor: colors.secondary }]}>{pct}% match</Text>
+          ) : null}
         </View>
       </View>
       {trailing}
@@ -36,20 +66,17 @@ export function PlaceCard({ title, subtitle, reason, category, confidence, thumb
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.md,
+    borderRadius: 12,
     padding: 12,
     gap: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: theme.colors.border,
   },
-  thumb: { width: 72, height: 72, borderRadius: theme.radius.sm, backgroundColor: theme.colors.bgElevated },
-  thumbFallback: { backgroundColor: theme.colors.bgElevated },
+  thumb: { width: 72, height: 72, borderRadius: 8 },
   body: { flex: 1 },
-  title: { color: theme.colors.text, fontSize: 16, fontWeight: '700' },
-  subtitle: { color: theme.colors.textDim, fontSize: 13, marginTop: 2 },
-  reason: { color: theme.colors.text, fontSize: 13, marginTop: 6, opacity: 0.85 },
+  title: { fontSize: 16, fontWeight: '700' },
+  subtitle: { fontSize: 13, marginTop: 2 },
+  reason: { fontSize: 13, marginTop: 6, opacity: 0.85 },
   metaRow: { flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' },
-  chip: { fontSize: 11, color: theme.colors.textDim, backgroundColor: theme.colors.bgElevated, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  chip: { fontSize: 11, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
 });

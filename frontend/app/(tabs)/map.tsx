@@ -1,27 +1,26 @@
 import { useCallback, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { EmptyState } from '@/components/EmptyState';
-import { theme } from '@/components/theme';
+import { useTheme } from '@/context/ThemeContext';
 import { mapPlaces } from '@/services/places';
 import { GoogleMapView, Marker } from '@/components/Map';
 import type { MapPlace } from '@/types';
 
-// expo-maps is imported lazily to avoid breaking web preview when the native module is absent.
 let AppleMaps: any = null;
 let GoogleMaps: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const maps = require('expo-maps');
   AppleMaps = maps.AppleMaps;
   GoogleMaps = maps.GoogleMaps;
 } catch {
-  // Expo Maps unavailable (e.g. web or dev client without module). We render a fallback list.
+  // Expo Maps unavailable on web/dev client without module.
 }
 
 export default function MapTab() {
   const [places, setPlaces] = useState<MapPlace[]>([]);
+  const { colors } = useTheme();
 
   useFocusEffect(
     useCallback(() => {
@@ -32,21 +31,18 @@ export default function MapTab() {
   const markers = places.map((p) => ({
     coordinates: { latitude: p.latitude, longitude: p.longitude },
     title: p.name,
-    tintColor: theme.colors.accent,
+    tintColor: colors.primary,
   }));
 
   const initialRegion = places.length
-    ? {
-        latitude: places[0].latitude,
-        longitude: places[0].longitude,
-        latitudeDelta: 2,
-        longitudeDelta: 2,
-      }
+    ? { latitude: places[0].latitude, longitude: places[0].longitude, latitudeDelta: 2, longitudeDelta: 2 }
     : { latitude: 40, longitude: -20, latitudeDelta: 60, longitudeDelta: 60 };
 
+  // Uses expo-maps for native Apple/Google Maps UX.
+  // Falls back to GoogleMapView (react-native-maps web iframe) on web.
   if (!AppleMaps && !GoogleMaps) {
     return (
-      <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
         {places.length === 0 ? (
           <Screen>
             <EmptyState title="No saved places" subtitle="Save places from TikTok videos to see them on the map." />
@@ -69,13 +65,15 @@ export default function MapTab() {
 
   const Maps = AppleMaps ?? GoogleMaps;
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Maps.View
-        style={{ flex: 1 }}
-        cameraPosition={{ coordinates: { latitude: initialRegion.latitude, longitude: initialRegion.longitude }, zoom: 6 }}
+        style={StyleSheet.absoluteFillObject}
+        cameraPosition={{
+          coordinates: { latitude: initialRegion.latitude, longitude: initialRegion.longitude },
+          zoom: 6,
+        }}
         markers={markers}
       />
     </View>
   );
 }
-
