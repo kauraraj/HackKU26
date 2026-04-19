@@ -86,23 +86,22 @@ export default function IngestionDetail() {
         renderItem={({ item }) => {
           const picked = !!selected[item.id];
           return (
-            <Pressable onPress={() => toggle(item.id)}>
-              <View style={[styles.cardWrap, picked && styles.cardPicked]}>
-                <PlaceCard
-                  title={item.normalized_name ?? item.original_name}
-                  subtitle={[item.city, item.country].filter(Boolean).join(', ') || null}
-                  reason={item.reason}
-                  category={item.category}
-                  confidence={item.confidence}
-                  thumbnailUrl={item.thumbnail_url}
-                  trailing={
-                    <View style={[styles.check, picked && styles.checkOn]}>
-                      <Text style={{ color: theme.colors.text }}>{picked ? '✓' : ''}</Text>
-                    </View>
-                  }
-                />
-              </View>
-            </Pressable>
+            <View style={[styles.cardWrap, picked && styles.cardPicked]}>
+              <PlaceCard
+                title={item.normalized_name ?? item.original_name}
+                subtitle={[item.city, item.country].filter(Boolean).join(', ') || null}
+                reason={item.reason}
+                category={item.category}
+                confidence={item.confidence}
+                thumbnailUrl={item.thumbnail_url}
+                onPress={() => toggle(item.id)}
+                trailing={
+                  <View style={[styles.check, picked && styles.checkOn]}>
+                    <Text style={{ color: theme.colors.text }}>{picked ? '✓' : ''}</Text>
+                  </View>
+                }
+              />
+            </View>
           );
         }}
         ListEmptyComponent={

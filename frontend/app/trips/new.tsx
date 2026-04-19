@@ -87,16 +87,15 @@ export default function NewTrip() {
         renderItem={({ item }) => {
           const picked = !!selected[item.id];
           return (
-            <Pressable onPress={() => toggle(item.id)}>
-              <View style={[styles.cardWrap, picked && styles.cardPicked]}>
-                <PlaceCard
-                  title={item.normalized_name}
-                  subtitle={[item.city, item.country].filter(Boolean).join(', ') || null}
-                  category={item.category}
-                  thumbnailUrl={item.thumbnail_url}
-                />
-              </View>
-            </Pressable>
+            <View style={[styles.cardWrap, picked && styles.cardPicked]}>
+              <PlaceCard
+                title={item.normalized_name}
+                subtitle={[item.city, item.country].filter(Boolean).join(', ') || null}
+                category={item.category}
+                thumbnailUrl={item.thumbnail_url}
+                onPress={() => toggle(item.id)}
+              />
+            </View>
           );
         }}
         ListEmptyComponent={
