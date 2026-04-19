@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { GoogleMapView, Marker } from '@/components/Map';
 import { Button } from '@/components/Button';
 import { LoadingState } from '@/components/LoadingState';
@@ -50,6 +51,8 @@ export default function TripDetail() {
     }
   };
 
+  const bottomSheetRef = useRef<BottomSheet>(null);
+
   if (!trip) return <LoadingState />;
 
   const totalItems = trip.days.reduce((acc, d) => acc + d.items.length, 0);
@@ -63,17 +66,42 @@ export default function TripDetail() {
     longitudeDelta: 0.05,
   } : undefined;
 
+  const snapPoints = ['25%', '50%', '90%'];
+
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
-      {/* Top half or left half container */}
-      <View style={styles.itineraryContainer}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      {/* Background Map taking up the full screen */}
+      <View style={StyleSheet.absoluteFillObject}>
+        <GoogleMapView 
+          style={styles.map} 
+          initialRegion={initialRegion}
+        >
+          {mapPlaces.map(p => (
+             <Marker
+                key={p.id}
+                coordinate={{ latitude: p.latitude!, longitude: p.longitude! }}
+                title={p.normalized_name}
+                description={p.category || undefined}
+             />
+          ))}
+        </GoogleMapView>
+      </View>
+
+      {/* Floating Bottom Sheet for Itinerary */}
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={1}
+        snapPoints={snapPoints}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetIndicator}
+      >
         <View style={styles.headerStack}>
           <Text style={styles.title}>{trip.title}</Text>
           <Text style={styles.sub}>{trip.destination ?? 'Destination TBD'}</Text>
           <Text style={styles.dates}>{trip.start_date} → {trip.end_date}</Text>
         </View>
 
-        <ScrollView contentContainerStyle={{ gap: 16, padding: 16, paddingBottom: 32 }}>
+        <BottomSheetScrollView contentContainerStyle={{ gap: 16, padding: 16, paddingBottom: 32 }}>
           <Button title={regenerating ? 'Generating…' : '✨ Regenerate itinerary'} onPress={regenerate} loading={regenerating} />
 
           {totalItems === 0 ? (
@@ -105,25 +133,8 @@ export default function TripDetail() {
               })}
             </View>
           ))}
-        </ScrollView>
-      </View>
-      
-      {/* Bottom half or right half container for Map */}
-      <View style={styles.mapContainer}>
-        <GoogleMapView 
-          style={styles.map} 
-          initialRegion={initialRegion}
-        >
-          {mapPlaces.map(p => (
-             <Marker
-                key={p.id}
-                coordinate={{ latitude: p.latitude!, longitude: p.longitude! }}
-                title={p.normalized_name}
-                description={p.category || undefined}
-             />
-          ))}
-        </GoogleMapView>
-      </View>
+        </BottomSheetScrollView>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -131,28 +142,24 @@ export default function TripDetail() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    flexDirection: 'row',
     backgroundColor: theme.colors.bg,
   },
-  itineraryContainer: {
-    flex: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.colors.border,
+  map: {
+    ...StyleSheet.absoluteFillObject,
   },
-  mapContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.bgElevated,
+  sheetBackground: {
+    backgroundColor: theme.colors.bg,
+    borderTopLeftRadius: theme.radius.lg,
+    borderTopRightRadius: theme.radius.lg,
+  },
+  sheetIndicator: {
+    backgroundColor: theme.colors.border,
   },
   headerStack: {
     padding: 16,
     borderBottomWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.bg,
-  },
-  map: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
   },
   title: { color: theme.colors.text, fontSize: 26, fontWeight: '800' },
   sub: { color: theme.colors.textDim, marginTop: 4 },
