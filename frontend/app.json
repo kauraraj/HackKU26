@@ -12,9 +12,15 @@
       "bundleIdentifier": "com.hackku26.tripcreator",
       "infoPlist": {
         "CFBundleURLTypes": [
-          { "CFBundleURLSchemes": ["tripcreator"] }
+          {
+            "CFBundleURLSchemes": [
+              "tripcreator"
+            ]
+          }
         ],
-        "LSApplicationQueriesSchemes": ["tiktok"]
+        "LSApplicationQueriesSchemes": [
+          "tiktok"
+        ]
       }
     },
     "android": {
@@ -22,18 +28,28 @@
       "intentFilters": [
         {
           "action": "SEND",
-          "category": ["DEFAULT"],
-          "data": [{ "mimeType": "text/plain" }]
+          "category": [
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "mimeType": "text/plain"
+            }
+          ]
         }
       ]
     },
-    "web": { "bundler": "metro" },
+    "web": {
+      "bundler": "metro"
+    },
     "plugins": [
       "expo-router",
-      ["expo-maps", { "requestLocationPermission": true, "locationPermission": "Show trip places near you" }]
+      "expo-maps"
     ],
     "extra": {
-      "router": { "origin": false }
+      "router": {
+        "origin": false
+      }
     }
   }
 }
