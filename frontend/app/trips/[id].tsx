@@ -4,7 +4,7 @@ import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import type MapView from 'react-native-maps';
-import { GoogleMapView, Marker, MapViewDirections } from '@/components/Map';
+import { GoogleMapView, Marker, RoutePolyline } from '@/components/Map';
 import { Button } from '@/components/Button';
 import { LoadingState } from '@/components/LoadingState';
 import { EmptyState } from '@/components/EmptyState';
@@ -21,6 +21,7 @@ export default function TripDetail() {
   const [regenerating, setRegenerating] = useState(false);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [optimizedRouteOrder, setOptimizedRouteOrder] = useState<Record<string, number[]>>({});
+  const [directionsError, setDirectionsError] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -62,6 +63,26 @@ export default function TripDetail() {
 
   const bottomSheetRef = useRef<BottomSheet>(null);
   const mapRef = useRef<MapView>(null);
+  const hasFittedRef = useRef(false);
+
+  // All unique places across every day — shown as markers simultaneously
+  const allMapPlaces = useMemo(() => {
+    if (!trip) return [];
+    const seen = new Set<string>();
+    const result: typeof trip.places = [];
+    for (const day of trip.days) {
+      for (const item of day.items) {
+        if (item.saved_place_id && !seen.has(item.saved_place_id)) {
+          const place = trip.places.find(p => p.id === item.saved_place_id);
+          if (place && place.latitude != null && place.longitude != null) {
+            seen.add(item.saved_place_id);
+            result.push(place);
+          }
+        }
+      }
+    }
+    return result;
+  }, [trip]);
 
   // Compute places for the selected day specifically
   const selectedDayPlaces = useMemo(() => {
@@ -101,9 +122,12 @@ export default function TripDetail() {
     return placesSeq;
   }, [trip, selectedDayId, optimizedRouteOrder]);
 
+  // Reset directions error when the selected day or places change
+  useEffect(() => { setDirectionsError(false); }, [selectedDayId]);
+
   const mapPlaces = selectedDayPlaces;
-  
-  const getBoundingRegion = (places: typeof mapPlaces) => {
+
+  const getBoundingRegion = (places: { latitude: number | null; longitude: number | null }[]) => {
     if (places.length === 0) return undefined;
     const lats = places.map(p => p.latitude!);
     const lons = places.map(p => p.longitude!);
@@ -111,7 +135,6 @@ export default function TripDetail() {
     const maxLat = Math.max(...lats);
     const minLon = Math.min(...lons);
     const maxLon = Math.max(...lons);
-
     return {
       latitude: (minLat + maxLat) / 2,
       longitude: (minLon + maxLon) / 2,
@@ -119,22 +142,24 @@ export default function TripDetail() {
       longitudeDelta: Math.max((maxLon - minLon) * 1.5, 0.05),
     };
   };
-  
-  const initialRegion = getBoundingRegion(mapPlaces);
 
+  // Stable region covering all places — does not change on day switch
+  const initialRegion = useMemo(() => getBoundingRegion(allMapPlaces), [allMapPlaces]);
+
+  // Fit camera to all places once after the map mounts
   useEffect(() => {
-    if (mapPlaces.length > 0 && mapRef.current) {
+    if (allMapPlaces.length > 0 && !hasFittedRef.current) {
+      hasFittedRef.current = true;
       setTimeout(() => {
-        mapRef.current?.fitToCoordinates(
-          mapPlaces.map(p => ({ latitude: p.latitude!, longitude: p.longitude! })),
-          {
-            edgePadding: { top: 50, right: 50, bottom: 400, left: 50 },
-            animated: true,
-          }
-        );
-      }, 500); // Allow map to mount
+        try {
+          mapRef.current?.fitToCoordinates(
+            allMapPlaces.map(p => ({ latitude: p.latitude!, longitude: p.longitude! })),
+            { edgePadding: { top: 50, right: 50, bottom: 400, left: 50 }, animated: true }
+          );
+        } catch {}
+      }, 500);
     }
-  }, [mapPlaces, trip]);
+  }, [allMapPlaces]);
 
   if (!trip) return <LoadingState />;
 
@@ -151,16 +176,16 @@ export default function TripDetail() {
           style={styles.map} 
           initialRegion={initialRegion}
         >
-          {mapPlaces.map((p, idx) => (
-             <Marker
-                key={`${p.id}-${idx}`}
-                coordinate={{ latitude: p.latitude!, longitude: p.longitude! }}
-                title={`${idx + 1}. ${p.normalized_name}`}
-                description={p.category || undefined}
-             />
+          {allMapPlaces.map((p) => (
+            <Marker
+              key={p.id}
+              coordinate={{ latitude: p.latitude!, longitude: p.longitude! }}
+              title={p.normalized_name}
+              description={p.category || undefined}
+            />
           ))}
-          {mapPlaces.length > 1 && (
-            <MapViewDirections
+          {mapPlaces.length > 1 && !directionsError && (
+            <RoutePolyline
               origin={{ latitude: mapPlaces[0].latitude!, longitude: mapPlaces[0].longitude! }}
               destination={{ latitude: mapPlaces[mapPlaces.length - 1].latitude!, longitude: mapPlaces[mapPlaces.length - 1].longitude! }}
               waypoints={mapPlaces.slice(1, -1).map(p => ({ latitude: p.latitude!, longitude: p.longitude! }))}
@@ -170,7 +195,6 @@ export default function TripDetail() {
               optimizeWaypoints={true}
               onReady={(result) => {
                 if (result.waypointOrder && result.waypointOrder.length > 0 && selectedDayId) {
-                  // Only update if it actually changed, to avoid infinite rendering loops
                   setOptimizedRouteOrder(prev => {
                     const currentOrder = prev[selectedDayId];
                     if (currentOrder && JSON.stringify(currentOrder) === JSON.stringify(result.waypointOrder)) {
@@ -179,17 +203,14 @@ export default function TripDetail() {
                     return { ...prev, [selectedDayId]: result.waypointOrder };
                   });
                 }
-                
-                // Re-fit to the actual route coordinates
-                if (mapRef.current) {
-                  mapRef.current.fitToCoordinates(result.coordinates, {
-                    edgePadding: { top: 50, right: 50, bottom: 400, left: 50 },
-                    animated: true,
-                  });
-                }
+              }}
+              onError={(errorMessage) => {
+                console.warn('Directions request failed:', errorMessage);
+                setDirectionsError(true);
               }}
             />
           )}
+
         </GoogleMapView>
       </View>
 

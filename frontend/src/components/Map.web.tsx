@@ -5,8 +5,16 @@ export const GoogleMapView = forwardRef<any, any>((props, ref) => {
   const { initialRegion, children } = props;
   
   if (!initialRegion) return (
-     <View style={[{ alignItems: 'center', justifyContent: 'center', backgroundColor: '#e2e8f0' }, props.style]}>
+    <View style={[{ alignItems: 'center', justifyContent: 'center', backgroundColor: '#e2e8f0' }, props.style]}>
       <Text style={{ color: '#64748b' }}>Loading Map...</Text>
+    </View>
+  );
+
+  if (!process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY) return (
+    <View style={[{ alignItems: 'center', justifyContent: 'center', backgroundColor: '#fef9c3' }, props.style]}>
+      <Text style={{ color: '#92400e', fontWeight: '600', textAlign: 'center' }}>
+        Map unavailable — set EXPO_PUBLIC_GOOGLE_MAPS_API_KEY in your .env.local
+      </Text>
     </View>
   );
 
@@ -67,40 +75,67 @@ export const GoogleMapView = forwardRef<any, any>((props, ref) => {
               bounds.extend(pos);
             });
 
-            if (directionsData) {
-              var directionsService = new google.maps.DirectionsService();
-              var directionsRenderer = new google.maps.DirectionsRenderer({
-                map: map,
-                suppressMarkers: true,
-                polylineOptions: {
-                  strokeColor: directionsData.strokeColor,
-                  strokeWeight: 4
-                }
-              });
+            function decodePolyline(encoded) {
+              var points = [], index = 0, lat = 0, lng = 0;
+              while (index < encoded.length) {
+                var shift = 0, result = 0, byte;
+                do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
+                lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+                shift = 0; result = 0;
+                do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
+                lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+                points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+              }
+              return points;
+            }
 
-              directionsService.route({
-                origin: directionsData.origin,
-                destination: directionsData.destination,
-                waypoints: directionsData.waypoints,
-                optimizeWaypoints: directionsData.optimizeWaypoints,
-                travelMode: 'DRIVING'
-              }, function(response, status) {
-                if (status === 'OK') {
-                  directionsRenderer.setDirections(response);
-                  // Extend bounds with route
-                  response.routes[0].legs.forEach(function(leg) {
-                    if (leg.start_location) bounds.extend(leg.start_location);
-                    if (leg.end_location) bounds.extend(leg.end_location);
-                    leg.steps.forEach(function(step) {
-                      bounds.extend(step.start_location);
-                      bounds.extend(step.end_location);
-                    });
+            function showErrorBanner() {
+              var banner = document.createElement('div');
+              banner.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);background:#fef9c3;color:#92400e;padding:6px 12px;border-radius:6px;font-size:12px;font-family:sans-serif;z-index:999;white-space:nowrap;';
+              banner.textContent = 'Route unavailable — places shown as pins';
+              document.body.appendChild(banner);
+            }
+
+            if (directionsData) {
+              var apiKey = '${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || ''}';
+              var reqBody = {
+                origin: { location: { latLng: { latitude: directionsData.origin.lat, longitude: directionsData.origin.lng } } },
+                destination: { location: { latLng: { latitude: directionsData.destination.lat, longitude: directionsData.destination.lng } } },
+                travelMode: 'DRIVE',
+              };
+              if (directionsData.waypoints.length > 0) {
+                reqBody.intermediates = directionsData.waypoints.map(function(w) {
+                  return { location: { latLng: { latitude: w.location.lat, longitude: w.location.lng } } };
+                });
+                reqBody.optimizeWaypointOrder = directionsData.optimizeWaypoints;
+              }
+              fetch('https://routes.googleapis.com/directions/v2:computeRoutes?key=' + apiKey, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Goog-FieldMask': 'routes.polyline.encodedPolyline,routes.optimizedIntermediateWaypointIndex',
+                },
+                body: JSON.stringify(reqBody),
+              })
+                .then(function(r) {
+                  return r.json().then(function(data) {
+                    if (!r.ok) { console.error('Routes API error:', JSON.stringify(data)); throw new Error(r.status); }
+                    return data;
                   });
+                })
+                .then(function(data) {
+                  if (!data.routes || !data.routes.length) { showErrorBanner(); if (markersData.length > 0) map.fitBounds(bounds); return; }
+                  var decoded = decodePolyline(data.routes[0].polyline.encodedPolyline);
+                  new google.maps.Polyline({
+                    path: decoded,
+                    map: map,
+                    strokeColor: directionsData.strokeColor,
+                    strokeWeight: 4,
+                  });
+                  decoded.forEach(function(p) { bounds.extend(p); });
                   map.fitBounds(bounds);
-                } else {
-                  console.error('Directions request failed due to ' + status);
-                }
-              });
+                })
+                .catch(function(err) { console.error('Routes fetch failed:', err); showErrorBanner(); if (markersData.length > 0) map.fitBounds(bounds); });
             } else if (markersData.length > 0) {
               map.fitBounds(bounds);
             }
@@ -128,6 +163,6 @@ export function Marker(props: any) {
   return null;
 }
 
-export function MapViewDirections(props: any) {
+export function RoutePolyline(props: any) {
   return null;
 }

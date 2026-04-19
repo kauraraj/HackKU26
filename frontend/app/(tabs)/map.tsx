@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { EmptyState } from '@/components/EmptyState';
 import { theme } from '@/components/theme';
 import { mapPlaces } from '@/services/places';
+import { GoogleMapView, Marker } from '@/components/Map';
 import type { MapPlace } from '@/types';
 
 // expo-maps is imported lazily to avoid breaking web preview when the native module is absent.
@@ -45,18 +46,24 @@ export default function MapTab() {
 
   if (!AppleMaps && !GoogleMaps) {
     return (
-      <Screen>
-        <Text style={styles.title}>Map</Text>
-        <EmptyState
-          title="Map preview unavailable"
-          subtitle="Open the app on iOS or Android with a dev client built that includes expo-maps."
-        />
-        {places.map((p) => (
-          <Text key={p.id} style={styles.fallbackRow}>
-            📍 {p.name} — {p.latitude.toFixed(2)}, {p.longitude.toFixed(2)}
-          </Text>
-        ))}
-      </Screen>
+      <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
+        {places.length === 0 ? (
+          <Screen>
+            <EmptyState title="No saved places" subtitle="Save places from TikTok videos to see them on the map." />
+          </Screen>
+        ) : (
+          <GoogleMapView style={{ flex: 1 }} initialRegion={initialRegion}>
+            {places.map((p) => (
+              <Marker
+                key={p.id}
+                coordinate={{ latitude: p.latitude, longitude: p.longitude }}
+                title={p.name}
+                description={p.category ?? undefined}
+              />
+            ))}
+          </GoogleMapView>
+        )}
+      </View>
     );
   }
 
@@ -72,7 +79,3 @@ export default function MapTab() {
   );
 }
 
-const styles = StyleSheet.create({
-  title: { color: theme.colors.text, fontSize: 28, fontWeight: '800' },
-  fallbackRow: { color: theme.colors.text, fontSize: 14, marginBottom: 4 },
-});
