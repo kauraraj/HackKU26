@@ -1,6 +1,6 @@
-import { Pressable } from 'react-native';
+import { View, Pressable } from 'react-native';
 import { Tabs } from 'expo-router';
-import { MapPin, Calendar, Map, User, Moon, Sun } from 'lucide-react-native';
+import { Home, Search, Plus, Calendar, User, Moon, Sun } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 
 export default function TabsLayout() {
@@ -9,7 +9,14 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarStyle: { backgroundColor: colors.card, borderTopColor: colors.border },
+        tabBarStyle: {
+          backgroundColor: colors.card,
+          borderTopColor: colors.border,
+          borderTopWidth: 1,
+          height: 80,
+          paddingBottom: 16,
+          paddingTop: 8,
+        },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
         headerStyle: { backgroundColor: colors.background },
@@ -43,10 +50,43 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="feed"
         options={{
-          title: 'Saved',
-          tabBarIcon: ({ color, size }) => <MapPin size={size} color={color} />,
+          title: 'Feed',
+          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          title: 'Search',
+          tabBarIcon: ({ color, size }) => <Search size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="create"
+        options={{
+          title: '',
+          tabBarIcon: () => (
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                backgroundColor: colors.primary,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 20,
+                shadowColor: colors.primary,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.45,
+                shadowRadius: 10,
+                elevation: 8,
+              }}
+            >
+              <Plus size={28} color="#fff" strokeWidth={2.5} />
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
@@ -57,19 +97,14 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="map"
-        options={{
-          title: 'Map',
-          tabBarIcon: ({ color, size }) => <Map size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
-          title: 'Me',
+          title: 'Profile',
           tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
         }}
       />
+      <Tabs.Screen name="index" options={{ href: null }} />
+      <Tabs.Screen name="map" options={{ href: null }} />
     </Tabs>
   );
 }
