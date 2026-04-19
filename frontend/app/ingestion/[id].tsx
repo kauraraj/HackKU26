@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Button } from '@/components/Button';
 import { PlaceCard } from '@/components/PlaceCard';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
-import { theme } from '@/components/theme';
+import { useTheme } from '@/context/ThemeContext';
 import { useIngestionPolling } from '@/hooks/useIngestionPolling';
 import { confirmPlaces } from '@/services/places';
 
@@ -15,6 +15,7 @@ export default function IngestionDetail() {
   const { job, error } = useIngestionPolling(id);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
+  const { colors } = useTheme();
   const router = useRouter();
 
   const places = useMemo(() => job?.extracted_places ?? [], [job]);
@@ -58,7 +59,7 @@ export default function IngestionDetail() {
     return (
       <Screen>
         <LoadingState label="Scanning for travel spots…" />
-        <Text style={styles.helper}>This usually takes 5–20 seconds.</Text>
+        <Text style={[styles.helper, { color: colors.mutedForeground }]}>This usually takes 5–20 seconds.</Text>
       </Screen>
     );
   }
@@ -68,7 +69,7 @@ export default function IngestionDetail() {
       <Screen>
         <EmptyState
           title="Couldn't scan that one"
-          subtitle={job.error_message ?? 'The video didn\'t contain enough info to extract places.'}
+          subtitle={job.error_message ?? "The video didn't contain enough info to extract places."}
         />
         <Button title="Try another video" onPress={() => router.replace('/ingestion/new')} />
       </Screen>
@@ -77,8 +78,8 @@ export default function IngestionDetail() {
 
   return (
     <Screen>
-      <Text style={styles.title}>We found these places</Text>
-      <Text style={styles.sub}>Tap the ones you want to save. You can edit details later.</Text>
+      <Text style={[styles.title, { color: colors.foreground }]}>We found these places</Text>
+      <Text style={[styles.sub, { color: colors.mutedForeground }]}>Tap the ones you want to save. You can edit details later.</Text>
 
       <FlatList
         data={places}
@@ -86,7 +87,10 @@ export default function IngestionDetail() {
         renderItem={({ item }) => {
           const picked = !!selected[item.id];
           return (
-            <View style={[styles.cardWrap, picked && styles.cardPicked]}>
+            <View style={[
+              styles.cardWrap,
+              picked && { borderColor: colors.primary, borderWidth: 1, shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 6 },
+            ]}>
               <PlaceCard
                 title={item.normalized_name ?? item.original_name}
                 subtitle={[item.city, item.country].filter(Boolean).join(', ') || null}
@@ -96,8 +100,12 @@ export default function IngestionDetail() {
                 thumbnailUrl={item.thumbnail_url}
                 onPress={() => toggle(item.id)}
                 trailing={
-                  <View style={[styles.check, picked && styles.checkOn]}>
-                    <Text style={{ color: theme.colors.text }}>{picked ? '✓' : ''}</Text>
+                  <View style={[
+                    styles.check,
+                    { borderColor: colors.border },
+                    picked && { backgroundColor: colors.primary, borderColor: colors.primary },
+                  ]}>
+                    <Text style={{ color: colors.primaryForeground }}>{picked ? '✓' : ''}</Text>
                   </View>
                 }
               />
@@ -122,11 +130,9 @@ export default function IngestionDetail() {
 }
 
 const styles = StyleSheet.create({
-  title: { color: theme.colors.text, fontSize: 24, fontWeight: '800' },
-  sub: { color: theme.colors.textDim, marginBottom: 4 },
-  helper: { color: theme.colors.textDim, textAlign: 'center', marginTop: -40 },
-  cardWrap: { borderRadius: theme.radius.md },
-  cardPicked: { borderColor: theme.colors.accent, borderWidth: 1, shadowColor: theme.colors.accent, shadowOpacity: 0.3, shadowRadius: 6 },
-  check: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
-  checkOn: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
+  title: { fontSize: 24, fontWeight: '800' },
+  sub: { marginBottom: 4 },
+  helper: { textAlign: 'center', marginTop: -40 },
+  cardWrap: { borderRadius: 12 },
+  check: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
 });

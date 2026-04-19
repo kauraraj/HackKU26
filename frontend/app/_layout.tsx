@@ -5,10 +5,16 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingState } from '@/components/LoadingState';
-import { theme } from '@/components/theme';
+import { ThemeProvider, useTheme } from '@/context/ThemeContext';
+
+function StatusBarController() {
+  const { isDark } = useTheme();
+  return <StatusBar style={isDark ? 'light' : 'dark'} />;
+}
 
 function AuthGate() {
   const { session, loading } = useAuth();
+  const { colors } = useTheme();
   const segments = useSegments();
   const router = useRouter();
 
@@ -24,9 +30,9 @@ function AuthGate() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: theme.colors.bg },
-        headerTintColor: theme.colors.text,
-        contentStyle: { backgroundColor: theme.colors.bg },
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.foreground,
+        contentStyle: { backgroundColor: colors.background },
       }}
     >
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -43,8 +49,10 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StatusBar style="light" />
-        <AuthGate />
+        <ThemeProvider>
+          <StatusBarController />
+          <AuthGate />
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

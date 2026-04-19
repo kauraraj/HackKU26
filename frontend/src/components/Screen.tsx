@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, ViewStyle } from 'react-native';
+import { ScrollView, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { theme } from './theme';
+import { useTheme } from '@/context/ThemeContext';
 
 interface Props {
   children: ReactNode;
@@ -10,20 +10,19 @@ interface Props {
 }
 
 export function Screen({ children, scroll, style }: Props) {
+  const { colors } = useTheme();
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
       {scroll ? (
-        <ScrollView contentContainerStyle={[styles.container, style]} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={[{ padding: 20, gap: 16 }, style]}
+          keyboardShouldPersistTaps="handled"
+        >
           {children}
         </ScrollView>
       ) : (
-        <View style={[styles.container, { flex: 1 }, style]}>{children}</View>
+        <View style={[{ flex: 1, padding: 20, gap: 16 }, style]}>{children}</View>
       )}
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: theme.colors.bg },
-  container: { padding: 20, gap: 16 },
-});
