@@ -17,8 +17,10 @@ def create_trip(user_id: str, payload: dict) -> dict:
     trip = db.table("trips").insert(trip_row).execute().data[0]
 
     # Pre-create empty days so the UI can render a timeline even before itinerary generation
-    start = date.fromisoformat(trip["start_date"])
-    end = date.fromisoformat(trip["end_date"])
+    start_str = trip["start_date"].split("T")[0] if "T" in trip["start_date"] else trip["start_date"]
+    end_str = trip["end_date"].split("T")[0] if "T" in trip["end_date"] else trip["end_date"]
+    start = date.fromisoformat(start_str)
+    end = date.fromisoformat(end_str)
     day_rows = [
         {"trip_id": trip["id"], "day_number": i + 1, "day_date": (start + timedelta(days=i)).isoformat()}
         for i in range((end - start).days + 1)
