@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { theme } from './theme';
+import { useTheme } from '@/context/ThemeContext';
 
 interface Props {
   title: string;
@@ -10,38 +10,41 @@ interface Props {
 }
 
 export function Button({ title, onPress, variant = 'primary', loading, disabled }: Props) {
+  const { colors } = useTheme();
   const isDisabled = disabled || loading;
+
+  const variantStyle = {
+    primary: { backgroundColor: colors.primary },
+    ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border },
+    danger: { backgroundColor: colors.destructive },
+  }[variant];
+
+  const textColor = variant === 'ghost' ? colors.foreground : colors.primaryForeground;
+
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
       style={({ pressed }) => [
         styles.base,
-        variant === 'primary' && styles.primary,
-        variant === 'ghost' && styles.ghost,
-        variant === 'danger' && styles.danger,
+        variantStyle,
         isDisabled && styles.disabled,
         pressed && !isDisabled && styles.pressed,
       ]}
     >
       <View style={styles.inner}>
-        {loading ? <ActivityIndicator color={theme.colors.text} /> : <Text style={styles.label}>{title}</Text>}
+        {loading
+          ? <ActivityIndicator color={textColor} />
+          : <Text style={[styles.label, { color: textColor }]}>{title}</Text>}
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  base: {
-    borderRadius: theme.radius.lg,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-  },
-  primary: { backgroundColor: theme.colors.accent },
-  ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.colors.border },
-  danger: { backgroundColor: theme.colors.danger },
+  base: { borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20 },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.85 },
   inner: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  label: { color: theme.colors.text, fontSize: 16, fontWeight: '600' },
+  label: { fontSize: 16, fontWeight: '600' },
 });

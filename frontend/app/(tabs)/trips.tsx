@@ -1,16 +1,17 @@
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { Plus, Calendar } from 'lucide-react-native';
 import { Screen } from '@/components/Screen';
-import { Button } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
-import { theme } from '@/components/theme';
+import { useTheme } from '@/context/ThemeContext';
 import { listTrips } from '@/services/trips';
 import type { Trip } from '@/types';
 
 export default function TripsTab() {
   const [trips, setTrips] = useState<Trip[] | null>(null);
+  const { colors } = useTheme();
   const router = useRouter();
 
   const load = useCallback(async () => {
@@ -32,19 +33,52 @@ export default function TripsTab() {
 
   return (
     <Screen>
-      <Text style={styles.title}>Your trips</Text>
-      <Button title="➕ New trip" onPress={() => router.push('/trips/new')} />
+      <Text style={[styles.title, { color: colors.foreground }]}>Your trips</Text>
+
+      <TouchableOpacity
+        onPress={() => router.push('/trips/new')}
+        activeOpacity={0.8}
+        style={[styles.newBtn, { backgroundColor: colors.primary }]}
+        hitSlop={4}
+      >
+        <Plus size={18} color={colors.primaryForeground} />
+        <Text style={[styles.newBtnText, { color: colors.primaryForeground }]}>New trip</Text>
+      </TouchableOpacity>
+
       <FlatList
         data={trips}
         keyExtractor={(t) => t.id}
         renderItem={({ item }) => (
-          <Pressable style={styles.card} onPress={() => router.push(`/trips/${item.id}`)}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.cardSub}>{item.destination ?? 'Destination TBD'}</Text>
-            <Text style={styles.cardDates}>
-              {item.start_date} → {item.end_date}
+          <Pressable
+            style={({ pressed }) => [
+              styles.card,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.cardBorder,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.06,
+                shadowRadius: 4,
+                elevation: 2,
+              },
+              pressed && { opacity: 0.9 },
+            ]}
+            onPress={() => router.push(`/trips/${item.id}`)}
+            hitSlop={4}
+          >
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>{item.title}</Text>
+            <Text style={[styles.cardSub, { color: colors.mutedForeground }]}>
+              {item.destination ?? 'Destination TBD'}
             </Text>
-            <Text style={styles.cardMeta}>{item.days.length} days · {item.places.length} places</Text>
+            <View style={styles.datesRow}>
+              <Calendar size={14} color={colors.primary} />
+              <Text style={[styles.cardDates, { color: colors.primary }]}>
+                {item.start_date} → {item.end_date}
+              </Text>
+            </View>
+            <Text style={[styles.cardMeta, { color: colors.mutedForeground }]}>
+              {item.days.length} days · {item.places.length} places
+            </Text>
           </Pressable>
         )}
         ListEmptyComponent={
@@ -59,18 +93,27 @@ export default function TripsTab() {
 }
 
 const styles = StyleSheet.create({
-  title: { color: theme.colors.text, fontSize: 28, fontWeight: '800' },
+  title: { fontSize: 28, fontWeight: '800' },
+  newBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  newBtnText: { fontSize: 16, fontWeight: '600' },
   card: {
-    backgroundColor: theme.colors.card,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.md,
+    borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     gap: 4,
+    borderWidth: 1,
   },
-  cardTitle: { color: theme.colors.text, fontSize: 18, fontWeight: '700' },
-  cardSub: { color: theme.colors.textDim },
-  cardDates: { color: theme.colors.accentSoft, marginTop: 6 },
-  cardMeta: { color: theme.colors.textDim, fontSize: 12, marginTop: 4 },
+  cardTitle: { fontSize: 18, fontWeight: '700' },
+  cardSub: { fontSize: 14 },
+  datesRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  cardDates: { fontSize: 14, fontWeight: '500' },
+  cardMeta: { fontSize: 12, marginTop: 4 },
 });

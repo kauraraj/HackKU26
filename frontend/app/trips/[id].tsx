@@ -3,21 +3,25 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { Sparkles, Clock } from 'lucide-react-native';
 import { GoogleMapView, Marker } from '@/components/Map';
 import { Button } from '@/components/Button';
 import { LoadingState } from '@/components/LoadingState';
 import { EmptyState } from '@/components/EmptyState';
-import { theme } from '@/components/theme';
+import { useTheme } from '@/context/ThemeContext';
 import { generateItinerary, getTrip } from '@/services/trips';
 import type { Trip } from '@/types';
 
 const BLOCK_ORDER: ('morning' | 'afternoon' | 'evening')[] = ['morning', 'afternoon', 'evening'];
-const BLOCK_LABEL = { morning: '☀️ Morning', afternoon: '🌤️ Afternoon', evening: '🌙 Evening' } as const;
+const BLOCK_DOT_COLORS = { morning: '#38bdf8', afternoon: '#818cf8', evening: '#f472b6' };
+const BLOCK_LABEL = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
 
 export default function TripDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const { colors } = useTheme();
+  const bottomSheetRef = useRef<BottomSheet>(null);
 
   const load = useCallback(async () => {
     try {
@@ -51,80 +55,77 @@ export default function TripDetail() {
     }
   };
 
-  const bottomSheetRef = useRef<BottomSheet>(null);
-
   if (!trip) return <LoadingState />;
 
   const totalItems = trip.days.reduce((acc, d) => acc + d.items.length, 0);
 
-  // Find places with lat/lon for the map markers
-  const mapPlaces = trip.places.filter(p => p.latitude != null && p.longitude != null);
-  const initialRegion = mapPlaces.length > 0 ? {
-    latitude: mapPlaces[0].latitude!,
-    longitude: mapPlaces[0].longitude!,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
-  } : undefined;
-
-  const snapPoints = ['25%', '50%', '90%'];
+  const mapPlaces = trip.places.filter((p) => p.latitude != null && p.longitude != null);
+  const initialRegion = mapPlaces.length > 0
+    ? { latitude: mapPlaces[0].latitude!, longitude: mapPlaces[0].longitude!, latitudeDelta: 0.05, longitudeDelta: 0.05 }
+    : undefined;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      {/* Background Map taking up the full screen */}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       <View style={StyleSheet.absoluteFillObject}>
-        <GoogleMapView 
-          style={styles.map} 
-          initialRegion={initialRegion}
-        >
-          {mapPlaces.map(p => (
-             <Marker
-                key={p.id}
-                coordinate={{ latitude: p.latitude!, longitude: p.longitude! }}
-                title={p.normalized_name}
-                description={p.category || undefined}
-             />
+        <GoogleMapView style={styles.map} initialRegion={initialRegion}>
+          {mapPlaces.map((p) => (
+            <Marker
+              key={p.id}
+              coordinate={{ latitude: p.latitude!, longitude: p.longitude! }}
+              title={p.normalized_name}
+              description={p.category || undefined}
+            />
           ))}
         </GoogleMapView>
       </View>
 
-      {/* Floating Bottom Sheet for Itinerary */}
       <BottomSheet
         ref={bottomSheetRef}
         index={1}
-        snapPoints={snapPoints}
-        backgroundStyle={styles.sheetBackground}
-        handleIndicatorStyle={styles.sheetIndicator}
+        snapPoints={['25%', '50%', '90%']}
+        backgroundStyle={{ backgroundColor: colors.card }}
+        handleIndicatorStyle={{ backgroundColor: colors.border }}
       >
-        <View style={styles.headerStack}>
-          <Text style={styles.title}>{trip.title}</Text>
-          <Text style={styles.sub}>{trip.destination ?? 'Destination TBD'}</Text>
-          <Text style={styles.dates}>{trip.start_date} → {trip.end_date}</Text>
+        <View style={[styles.sheetHeader, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <Text style={[styles.title, { color: colors.foreground }]}>{trip.title}</Text>
+          <Text style={[styles.sub, { color: colors.mutedForeground }]}>{trip.destination ?? 'Destination TBD'}</Text>
+          <Text style={[styles.dates, { color: colors.primary }]}>{trip.start_date} → {trip.end_date}</Text>
         </View>
 
         <BottomSheetScrollView contentContainerStyle={{ gap: 16, padding: 16, paddingBottom: 32 }}>
-          <Button title={regenerating ? 'Generating…' : '✨ Regenerate itinerary'} onPress={regenerate} loading={regenerating} />
+          <Button
+            title={regenerating ? 'Generating…' : 'Regenerate itinerary'}
+            onPress={regenerate}
+            loading={regenerating}
+          />
 
           {totalItems === 0 ? (
             <EmptyState title="No itinerary yet" subtitle="Tap regenerate to plan your days." />
           ) : null}
 
           {trip.days.map((day) => (
-            <View key={day.id} style={styles.dayCard}>
-              <Text style={styles.dayTitle}>Day {day.day_number} · {day.day_date}</Text>
-              {day.summary ? <Text style={styles.daySummary}>{day.summary}</Text> : null}
+            <View key={day.id} style={[styles.dayCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <View style={styles.dayHeaderRow}>
+                <Clock size={15} color={colors.primary} />
+                <Text style={[styles.dayTitle, { color: colors.foreground }]}>Day {day.day_number} · {day.day_date}</Text>
+              </View>
+              {day.summary ? <Text style={[styles.daySummary, { color: colors.mutedForeground }]}>{day.summary}</Text> : null}
 
               {BLOCK_ORDER.map((block) => {
                 const items = day.items.filter((i) => i.block === block).sort((a, b) => a.position - b.position);
                 if (items.length === 0) return null;
                 return (
                   <View key={block} style={styles.block}>
-                    <Text style={styles.blockLabel}>{BLOCK_LABEL[block]}</Text>
+                    <View style={styles.blockLabelRow}>
+                      <View style={[styles.blockDot, { backgroundColor: BLOCK_DOT_COLORS[block] }]} />
+                      <Text style={[styles.blockLabel, { color: colors.foreground }]}>{BLOCK_LABEL[block]}</Text>
+                    </View>
                     {items.map((it) => (
-                      <View key={it.id} style={styles.item}>
-                        <Text style={styles.itemTitle}>{it.title}</Text>
-                        {it.rationale ? <Text style={styles.itemBody}>{it.rationale}</Text> : null}
+                      <View key={it.id} style={[styles.item, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                        <Text style={[styles.itemTitle, { color: colors.foreground }]}>{it.title}</Text>
+                        {it.rationale ? <Text style={[styles.itemBody, { color: colors.mutedForeground }]}>{it.rationale}</Text> : null}
                         {it.estimated_travel_minutes ? (
-                          <Text style={styles.itemMeta}>~{it.estimated_travel_minutes} min travel</Text>
+                          <Text style={[styles.itemMeta, { color: colors.mutedForeground }]}>~{it.estimated_travel_minutes} min travel</Text>
                         ) : null}
                       </View>
                     ))}
@@ -140,49 +141,35 @@ export default function TripDetail() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.bg,
-  },
-  map: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  sheetBackground: {
-    backgroundColor: theme.colors.bg,
-    borderTopLeftRadius: theme.radius.lg,
-    borderTopRightRadius: theme.radius.lg,
-  },
-  sheetIndicator: {
-    backgroundColor: theme.colors.border,
-  },
-  headerStack: {
+  container: { flex: 1 },
+  map: { ...StyleSheet.absoluteFillObject },
+  sheetHeader: {
     padding: 16,
     borderBottomWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.bg,
   },
-  title: { color: theme.colors.text, fontSize: 26, fontWeight: '800' },
-  sub: { color: theme.colors.textDim, marginTop: 4 },
-  dates: { color: theme.colors.accentSoft, marginTop: 6 },
+  title: { fontSize: 22, fontWeight: '800' },
+  sub: { marginTop: 4, fontSize: 14 },
+  dates: { marginTop: 6, fontSize: 14, fontWeight: '500' },
   dayCard: {
-    backgroundColor: theme.colors.card,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.lg,
+    borderRadius: 12,
     padding: 16,
     gap: 10,
+    borderWidth: 1,
   },
-  dayTitle: { color: theme.colors.text, fontSize: 18, fontWeight: '700' },
-  daySummary: { color: theme.colors.textDim, fontStyle: 'italic' },
-  block: { gap: 8 },
-  blockLabel: { color: theme.colors.accentSoft, fontWeight: '700', marginTop: 4 },
+  dayHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dayTitle: { fontSize: 16, fontWeight: '700' },
+  daySummary: { fontSize: 13, fontStyle: 'italic' },
+  block: { gap: 8, marginTop: 4 },
+  blockLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  blockDot: { width: 10, height: 10, borderRadius: 5 },
+  blockLabel: { fontSize: 14, fontWeight: '600' },
   item: {
-    backgroundColor: theme.colors.bgElevated,
-    borderRadius: theme.radius.md,
+    borderRadius: 10,
     padding: 12,
     gap: 4,
+    borderWidth: 1,
   },
-  itemTitle: { color: theme.colors.text, fontWeight: '600' },
-  itemBody: { color: theme.colors.textDim, fontSize: 13 },
-  itemMeta: { color: theme.colors.textDim, fontSize: 11 },
+  itemTitle: { fontWeight: '600', fontSize: 14 },
+  itemBody: { fontSize: 13 },
+  itemMeta: { fontSize: 11 },
 });

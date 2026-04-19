@@ -9,12 +9,12 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { Plus } from 'lucide-react-native';
 import { Screen } from '@/components/Screen';
-import { Button } from '@/components/Button';
 import { PlaceCard } from '@/components/PlaceCard';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
-import { theme } from '@/components/theme';
+import { useTheme } from '@/context/ThemeContext';
 import { listPlaces } from '@/services/places';
 import type { SavedPlace } from '@/types';
 
@@ -29,6 +29,7 @@ export default function SavedPlacesTab() {
   const [places, setPlaces] = useState<SavedPlace[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [activeLocation, setActiveLocation] = useState<string | null>(null);
+  const { colors } = useTheme();
   const router = useRouter();
 
   const load = useCallback(async () => {
@@ -85,11 +86,19 @@ export default function SavedPlacesTab() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Text style={styles.title}>Saved places</Text>
-        <Text style={styles.count}>{places.length}</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>Saved places</Text>
+        <Text style={[styles.count, { color: colors.mutedForeground }]}>{places.length}</Text>
       </View>
 
-      <Button title="➕ Turn a TikTok into a trip" onPress={() => router.push('/ingestion/new')} />
+      <TouchableOpacity
+        onPress={() => router.push('/ingestion/new')}
+        activeOpacity={0.8}
+        style={[styles.ctaBtn, { backgroundColor: colors.primary }]}
+        hitSlop={4}
+      >
+        <Plus size={18} color={colors.primaryForeground} />
+        <Text style={[styles.ctaBtnText, { color: colors.primaryForeground }]}>Turn a TikTok into a trip</Text>
+      </TouchableOpacity>
 
       {groups.length === 0 ? (
         <EmptyState
@@ -110,17 +119,34 @@ export default function SavedPlacesTab() {
                 <TouchableOpacity
                   key={key}
                   onPress={() => setActiveLocation(key)}
-                  style={[styles.tab, active && styles.tabActive]}
+                  style={[
+                    styles.tab,
+                    { backgroundColor: colors.card, borderColor: colors.border },
+                    active && { backgroundColor: colors.accentBg, borderColor: colors.primary },
+                  ]}
                   activeOpacity={0.75}
+                  hitSlop={4}
                 >
                   <Text
-                    style={[styles.tabLabel, active && styles.tabLabelActive]}
+                    style={[
+                      styles.tabLabel,
+                      { color: colors.mutedForeground },
+                      active && { color: colors.primary },
+                    ]}
                     numberOfLines={1}
                   >
                     {key}
                   </Text>
-                  <View style={[styles.tabBadge, active && styles.tabBadgeActive]}>
-                    <Text style={[styles.tabBadgeText, active && styles.tabBadgeTextActive]}>
+                  <View style={[
+                    styles.tabBadge,
+                    { backgroundColor: colors.secondary },
+                    active && { backgroundColor: colors.primary },
+                  ]}>
+                    <Text style={[
+                      styles.tabBadgeText,
+                      { color: colors.mutedForeground },
+                      active && { color: colors.primaryForeground },
+                    ]}>
                       {items.length}
                     </Text>
                   </View>
@@ -136,7 +162,7 @@ export default function SavedPlacesTab() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor={theme.colors.accent}
+                tintColor={colors.primary}
               />
             }
             contentContainerStyle={{ paddingVertical: 8 }}
@@ -162,12 +188,20 @@ export default function SavedPlacesTab() {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'baseline', gap: 12 },
-  title: { color: theme.colors.text, fontSize: 28, fontWeight: '800' },
-  count: { color: theme.colors.textDim, fontSize: 16 },
-
-  tabStrip: { marginTop: 12, marginBottom: 4 },
+  title: { fontSize: 28, fontWeight: '800' },
+  count: { fontSize: 16 },
+  ctaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  ctaBtnText: { fontSize: 16, fontWeight: '600' },
+  tabStrip: { marginTop: 4, marginBottom: 4 },
   tabStripContent: { gap: 8, paddingHorizontal: 2, paddingVertical: 4 },
-
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -175,39 +209,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: theme.colors.card,
     borderWidth: 1,
-    borderColor: theme.colors.border,
     maxWidth: 220,
   },
-  tabActive: {
-    backgroundColor: theme.colors.accent + '22',
-    borderColor: theme.colors.accent,
-  },
-  tabLabel: {
-    color: theme.colors.textDim,
-    fontSize: 12,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
-  tabLabelActive: {
-    color: theme.colors.accent,
-  },
-  tabBadge: {
-    backgroundColor: theme.colors.bgElevated,
-    borderRadius: 999,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  tabBadgeText: {
-    color: theme.colors.textDim,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  tabBadgeActive: {
-    backgroundColor: theme.colors.accent,
-  },
-  tabBadgeTextActive: {
-    color: '#fff',
-  },
+  tabLabel: { fontSize: 12, fontWeight: '600', flexShrink: 1 },
+  tabBadge: { borderRadius: 999, paddingHorizontal: 6, paddingVertical: 1 },
+  tabBadgeText: { fontSize: 11, fontWeight: '700' },
 });

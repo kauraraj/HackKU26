@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput } from 'react-native';
+import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Sparkles } from 'lucide-react-native';
 import { Screen } from '@/components/Screen';
 import { Button } from '@/components/Button';
-import { theme } from '@/components/theme';
+import { useTheme } from '@/context/ThemeContext';
 import { createIngestion } from '@/services/ingestions';
 
 export default function NewIngestion() {
   const [url, setUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const { colors } = useTheme();
   const router = useRouter();
 
   const submit = async () => {
@@ -30,19 +32,29 @@ export default function NewIngestion() {
 
   return (
     <Screen scroll>
-      <Text style={styles.title}>Turn this TikTok into a trip ✨</Text>
-      <Text style={styles.body}>
+      <Text style={[styles.title, { color: colors.foreground }]}>Turn this TikTok into a trip</Text>
+      <View style={[styles.iconWrap, { backgroundColor: colors.accentBg }]}>
+        <Sparkles size={24} color={colors.primary} />
+      </View>
+      <Text style={[styles.body, { color: colors.mutedForeground }]}>
         Paste a TikTok link below. We&apos;ll scan the video for places the creator mentions, then hand them to you
         to confirm.
       </Text>
       <TextInput
         placeholder="https://tiktok.com/@creator/video/..."
-        placeholderTextColor={theme.colors.textDim}
+        placeholderTextColor={colors.mutedForeground}
         value={url}
         onChangeText={setUrl}
         autoCapitalize="none"
         keyboardType="url"
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.inputBg,
+            borderColor: colors.border,
+            color: colors.foreground,
+          },
+        ]}
       />
       <Button title="Extract places" onPress={submit} loading={submitting} />
     </Screen>
@@ -50,15 +62,19 @@ export default function NewIngestion() {
 }
 
 const styles = StyleSheet.create({
-  title: { color: theme.colors.text, fontSize: 26, fontWeight: '800' },
-  body: { color: theme.colors.textDim, lineHeight: 20 },
+  title: { fontSize: 26, fontWeight: '800' },
+  iconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  body: { lineHeight: 20 },
   input: {
-    backgroundColor: theme.colors.card,
-    borderColor: theme.colors.border,
     borderWidth: 1,
-    borderRadius: theme.radius.md,
+    borderRadius: 12,
     padding: 14,
-    color: theme.colors.text,
     fontSize: 16,
   },
 });
